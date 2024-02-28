@@ -17,8 +17,32 @@ int main(){
 
     int currentFloor = -1; // Setter verdien til gjeldende etasje til en ugyldig verdi
     int targetFloor = -1; //Variabel for destinasjons-etasjen
+    int previousFloor = -1;
 
+
+    //Hvis heisen starter mellom etasjer, så flyttes den ned til nærmeste etasje
+    int floor = elevio_floorSensor();
+    int flag = 0;
+    while (1) {
+        floor = elevio_floorSensor();
+        if (floor == -1 && flag == 0) {
+            elevio_motorDirection(DIRN_DOWN);
+            flag = 1;
+        }
+        else if(floor != -1){
+            elevio_motorDirection(DIRN_STOP);
+            break;
+        }
+        nanosleep(&(struct timespec){0, 1*1000*1000}, NULL); // Pauser her i 1 millisekund
+    }
+
+
+
+
+    //Kode for å overvåke knappetrykk
     while(1){
+        previousFloor = currentFloor;
+
         // Oppdaterer gjeldende etasje
         int floor = elevio_floorSensor();
         if (floor != -1) {
@@ -29,28 +53,21 @@ int main(){
         for (int f = 0; f < N_FLOORS; f++) {
             if (elevio_callButton(f, 2)) {
                 targetFloor = f;
-                if (currentFloor == -1) {
-                    //Hvis heisen starter i en posisjon mellom etasjer, så flytter den seg til nærmeste etasje
-                    if (f > 0) {
-                        elevio_motorDirection(DIRN_DOWN);
-                    } else {
-                        elevio_motorDirection(DIRN_UP);
-                    }
-                } else if (f > currentFloor) {
+                if (f > currentFloor) {
                     elevio_motorDirection(DIRN_UP);
                 } else if (f < currentFloor) {
                     elevio_motorDirection(DIRN_DOWN);
                 } else {
                     elevio_motorDirection(DIRN_STOP);
-                    printf("Heisen er allerede i etasjen %d\n", f);
+                    printf("Heisen er allerede i etasje: %d\n", f);
                 }
             }
         }
 
         // Stopper heisen når den har nådd destinasjonen sin
-        if (currentFloor == targetFloor) {
+        if (currentFloor == targetFloor && currentFloor != -1) {
             elevio_motorDirection(DIRN_STOP);
-            printf("Heisen har nådd destinasjonen sin %d\n", currentFloor);
+            printf("Heisen har ankommet etasje: %d\n", currentFloor);
             targetFloor = -1; // Tilbakestiller destinasjonsetasje
         }
 
@@ -58,93 +75,22 @@ int main(){
         //elevio_floorIndicator(1);
 
 
-        /*
+        
         //Lyser opp etasjelampen
         if(floor == 0){
-            //elevio_motorDirection(DIRN_UP);
-            //printf("Etasje 1\n");
             elevio_floorIndicator(0);
         }
         if(floor == 1){
-            //printf("Etasje 2\n");
             elevio_floorIndicator(1);
         }
         if(floor == 2){
-            //printf("Etasje 3\n");
             elevio_floorIndicator(2);
         }
         if(floor == N_FLOORS-1){
-            //elevio_motorDirection(DIRN_DOWN);
-            //printf("Etasje 4\n");
             elevio_floorIndicator(3);
         }
-        */
         
-
-       /*
-        //Trykker på knapp og heisen flytter seg dit
-        for(int f = 0; f < N_FLOORS; f++){
-            for(int b = 0; b < N_BUTTONS; b++){
-                int btnPressed = elevio_callButton(f, b);
-
-                //Inni heis, trykk til 1
-                if(b == 2 && f == 0 && btnPressed == 1){
-                    //Sjekker om vi må opp eller ned
-                    if(floor < f){
-                        elevio_motorDirection(DIRN_UP);
-                        printf("floor=%d, f=%d\n", floor, f);
-                    }
-                    else if(floor > f){
-                        elevio_motorDirection(DIRN_DOWN);
-                        printf("floor=%d, f=%d\n", floor, f);
-                    }
-                }
-                //Inni heis, trykk til 2
-                if(b == 2 && f == 1 && btnPressed == 1){
-                    //Sjekker om vi må opp eller ned
-                    if(floor < f){
-                        elevio_motorDirection(DIRN_UP);
-                        printf("floor=%d, f=%d\n", floor, f);
-                    }
-                    else if(floor > f){
-                        elevio_motorDirection(DIRN_DOWN);
-                        printf("floor=%d, f=%d\n", floor, f);
-                    }
-                }
-                //Inni heis, trykk til 3
-                if(b == 2 && f == 2 && btnPressed == 1){
-                    //Sjekker om vi må opp eller ned
-                    if(floor < f){
-                        elevio_motorDirection(DIRN_UP);
-                        printf("floor=%d, f=%d\n", floor, f);
-                    }
-                    else if(floor > f){
-                        elevio_motorDirection(DIRN_DOWN);
-                        printf("floor=%d, f=%d\n", floor, f);
-                    }
-                }
-                //Inni heis, trykk til 4
-                if(b == 2 && f == 3 && btnPressed == 1){
-                    //Sjekker om vi må opp eller ned
-                    if(floor < f){
-                        elevio_motorDirection(DIRN_UP);
-                        printf("floor=%d, f=%d\n", floor, f);
-                    }
-                    else if(floor > f){
-                        elevio_motorDirection(DIRN_DOWN);
-                        printf("floor=%d, f=%d\n", floor, f);
-                    }
-                }
-                //Stopper når den ankommer riktig etasje
-                if(floor == f){
-                    elevio_motorDirection(DIRN_STOP);
-                }
-            }
-        }
-        */
-        
-
-        
+                
 
         //Lyser opp knappen du trykker på
         for(int f = 0; f < N_FLOORS; f++){
@@ -155,7 +101,7 @@ int main(){
                     elevio_buttonLamp(f, b, 1);
                 }
                 else if(lampStatus[f][b]){
-                    lampStatus[f][b] = 0; //Forteller at knapp er trykket
+                    lampStatus[f][b] = 0; //Forteller at knapp er sluppet
                     elevio_buttonLamp(f, b, 0);
                 }
             }
@@ -174,7 +120,7 @@ int main(){
             break;
         }
         
-        nanosleep(&(struct timespec){0, 1*1000*1000}, NULL);
+        nanosleep(&(struct timespec){0, 1*1000*1000}, NULL); //Bestemmer hvor ofte knappene sjekkes
     }//Slutten på while-løkka
     
 
