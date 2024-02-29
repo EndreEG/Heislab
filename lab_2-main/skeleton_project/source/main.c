@@ -5,6 +5,13 @@
 #include "driver/elevio.h"
 
 
+//Definerer køsystem for kabinknapper
+typedef struct node {
+    int val;
+    struct node * next;
+} kabinKnapper;
+
+
 int main(){
     elevio_init();
 
@@ -18,6 +25,22 @@ int main(){
     int currentFloor = -1; // Setter verdien til gjeldende etasje til en ugyldig verdi
     int targetFloor = -1; //Variabel for destinasjons-etasjen
     int previousFloor = -1;
+
+    kabinKnapper * head = NULL;
+    head = (kabinKnapper *) malloc(sizeof(kabinKnapper));
+    if(head == NULL){
+        return 1;
+    }
+    head->val = 1;
+    head->next = NULL;
+    pushEnd(head, 2);
+    print_list(head);
+    /*
+    kabinKnapper * head = NULL; //Pointer kalt "head" av typen "kabinKnapper"
+    pushEnd(head, 2);
+    print_list(head);
+    */
+    
 
 
     //Hvis heisen starter mellom etasjer, så flyttes den ned til nærmeste etasje
@@ -129,5 +152,40 @@ int main(){
 
     
 
+
+
+    // Deallokerer minnet for å unngå minnelekkasje
+    kabinKnapper *current = head;
+    kabinKnapper *next;
+    while (current != NULL) {
+        next = current->next;
+        free(current);
+        current = next;
+    }
+
     return 0;
 }//Slutten på main-funksjonen
+
+
+
+//Legger til knappetrykk i slutten av lista
+void pushEnd(kabinKnapper * head, int val) {
+    kabinKnapper * current = head;
+    while (current->next != NULL) {//Itererer til slutten av lista
+        current = current->next;
+    }
+    //Legger til knappetrykk
+    current->next = (kabinKnapper *) malloc(sizeof(kabinKnapper));
+    current->next->val = val;
+    current->next->next = NULL;
+}
+
+//Printer kø-lista
+void print_list(kabinKnapper * head) {
+    kabinKnapper * current = head;
+
+    while (current != NULL) {
+        printf("%d\n", current->val);
+        current = current->next;
+    }
+}
