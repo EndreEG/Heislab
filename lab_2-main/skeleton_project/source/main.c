@@ -3,6 +3,7 @@
 #include <signal.h>
 #include <time.h>
 #include "driver/elevio.h"
+#include <stdbool.h>
 
 
 //Definerer køsystem for kabinknapper
@@ -25,15 +26,10 @@ int main(){
     int currentFloor = -1; // Setter verdien til gjeldende etasje til en ugyldig verdi
     int targetFloor = -1; //Variabel for destinasjons-etasjen
     int previousFloor = -1;
+    int nextFloor;
+    bool alreeadyPrinted = false;
 
     kabinKnapper * head = NULL; //Køsystem for knappetrykk
-    
-    pushEnd(&head, 2);
-    pushEnd(&head, 4);
-    pushEnd(&head, 1);
-    pushEnd(&head, 3);
-    pop(&head);
-    print_list(head);
     
 
 
@@ -57,16 +53,16 @@ int main(){
 
 
 
-
+    
     //Kode for å overvåke knappetrykk
     while(1){
         if(!elevio_obstruction()){//Sjekker etter sperringer i døra
             //Sjekker om heiser går opp eller ned
-            if(previousFloor != currentFloor){
+            if(previousFloor != currentFloor && currentFloor != nextFloor){
                 if(previousFloor > currentFloor){
                     printf("Heisen går nedover\n");
                 }
-                else if(previousFloor < currentFloor && previousFloor != -1){
+                else if(previousFloor < currentFloor && previousFloor != -1 && currentFloor != nextFloor){
                     printf("Heisen går oppover\n");
                 }
             }
@@ -79,10 +75,15 @@ int main(){
             }
 
             //Sjekker etter knappetrykk inni heis
+            /*
             for (int f = 0; f < N_FLOORS; f++) {
                 if (elevio_callButton(f, 2)) {
-                    //pushEnd(&head, f);
-                    //printList(head);
+                    
+                    if(checkList(head, f) == 1){ //Sjekker om knappetrykket allerede er i lista. 0 = i liste, 1 = ikke i liste
+                        pushEnd(&head, f);
+                    }
+                    printList(head);
+                    
                     targetFloor = f;
                     if (f > currentFloor) {
                         elevio_motorDirection(DIRN_UP);
@@ -94,12 +95,45 @@ int main(){
                     }
                 }
             }
+            */
+
+            //Legger til etasjer i køsystemet ved knappetrykk
+            for (int f = 0; f < N_FLOORS; f++) {
+                if (elevio_callButton(f, 2)) {
+                    if(checkList(head, f) == 1){ //Sjekker om knappetrykket allerede er i lista. 0 = i liste, 1 = ikke i liste
+                        pushEnd(&head, f);
+                    }
+                    printList(head);
+                }
+            }
+
+            //Kjører heisen til neste etasje i køen
+            nextFloor = getFirst(head);
+            if (nextFloor > currentFloor && nextFloor != -1) {
+                elevio_motorDirection(DIRN_UP);
+                alreeadyPrinted = false;
+            }
+            else if (nextFloor < currentFloor && nextFloor != -1) {
+                elevio_motorDirection(DIRN_DOWN);
+                alreeadyPrinted = false;
+            }
+            else {
+                elevio_motorDirection(DIRN_STOP);
+                pop(&head);
+                if(!alreeadyPrinted && nextFloor != -1){
+                    printf("Heisen har ankommet %d. etasje\n", nextFloor);
+                    alreeadyPrinted = true;
+                }
+                
+            }
 
             // Stopper heisen når den har nådd destinasjonen sin
             if (currentFloor == targetFloor && currentFloor != -1 && previousFloor != currentFloor) {
                 elevio_motorDirection(DIRN_STOP);
                 printf("Heisen har ankommet etasje: %d\n", currentFloor);
                 targetFloor = -1; // Tilbakestiller destinasjonsetasje
+                pop(&head);//Fjerner etasje fra lista
+                printList(head);
             }
 
             //elevio_buttonLamp(1,2,1);
@@ -209,11 +243,34 @@ int pop(kabinKnapper ** head) {
 
 
 //Printer kø-lista
-void print_list(kabinKnapper * head) {
+void printList(kabinKnapper * head) {
     kabinKnapper * current = head;
 
     while (current != NULL) {
-        printf("%d\n", current->val);
+        printf("%d, ", current->val);
         current = current->next;
     }
+    printf("\n");
+}
+
+//Sjekker om en verdi er i lista
+int checkList(kabinKnapper * head, int f){
+    kabinKnapper * current = head;
+    while (current != NULL){
+        if(current->val == f){
+            return 0;
+        }
+        current = current->next;
+    }
+    return 1;
+}
+
+//Returnerer første element i lista
+int getFirst(kabinKnapper * head) {
+    if (head == NULL) {
+        //printf("Listen er tom.\n");
+        return -1; // Returverdien indikerer en feiltilstand
+    }
+
+    return head->val;
 }
