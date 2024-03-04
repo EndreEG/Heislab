@@ -26,20 +26,14 @@ int main(){
     int targetFloor = -1; //Variabel for destinasjons-etasjen
     int previousFloor = -1;
 
-    kabinKnapper * head = NULL;
-    head = (kabinKnapper *) malloc(sizeof(kabinKnapper));
-    if(head == NULL){
-        return 1;
-    }
-    head->val = 1;
-    head->next = NULL;
-    pushEnd(head, 2);
+    kabinKnapper * head = NULL; //Køsystem for knappetrykk
+    
+    pushEnd(&head, 2);
+    pushEnd(&head, 4);
+    pushEnd(&head, 1);
+    pushEnd(&head, 3);
+    pop(&head);
     print_list(head);
-    /*
-    kabinKnapper * head = NULL; //Pointer kalt "head" av typen "kabinKnapper"
-    pushEnd(head, 2);
-    print_list(head);
-    */
     
 
 
@@ -67,7 +61,16 @@ int main(){
     //Kode for å overvåke knappetrykk
     while(1){
         if(!elevio_obstruction()){//Sjekker etter sperringer i døra
-            previousFloor = currentFloor;
+            //Sjekker om heiser går opp eller ned
+            if(previousFloor != currentFloor){
+                if(previousFloor > currentFloor){
+                    printf("Heisen går nedover\n");
+                }
+                else if(previousFloor < currentFloor && previousFloor != -1){
+                    printf("Heisen går oppover\n");
+                }
+            }
+            previousFloor = currentFloor; //Oppdaterer forrige etasje
 
             // Oppdaterer gjeldende etasje
             floor = elevio_floorSensor();
@@ -78,6 +81,8 @@ int main(){
             //Sjekker etter knappetrykk inni heis
             for (int f = 0; f < N_FLOORS; f++) {
                 if (elevio_callButton(f, 2)) {
+                    //pushEnd(&head, f);
+                    //printList(head);
                     targetFloor = f;
                     if (f > currentFloor) {
                         elevio_motorDirection(DIRN_UP);
@@ -91,7 +96,7 @@ int main(){
             }
 
             // Stopper heisen når den har nådd destinasjonen sin
-            if (currentFloor == targetFloor && currentFloor != -1) {
+            if (currentFloor == targetFloor && currentFloor != -1 && previousFloor != currentFloor) {
                 elevio_motorDirection(DIRN_STOP);
                 printf("Heisen har ankommet etasje: %d\n", currentFloor);
                 targetFloor = -1; // Tilbakestiller destinasjonsetasje
@@ -150,10 +155,6 @@ int main(){
     }//Slutten på while-løkka
     
 
-    
-
-
-
     // Deallokerer minnet for å unngå minnelekkasje
     kabinKnapper *current = head;
     kabinKnapper *next;
@@ -168,17 +169,44 @@ int main(){
 
 
 
-//Legger til knappetrykk i slutten av lista
-void pushEnd(kabinKnapper * head, int val) {
-    kabinKnapper * current = head;
-    while (current->next != NULL) {//Itererer til slutten av lista
+
+//Legger til element i slutten av lista
+void pushEnd(kabinKnapper **headRef, int val) {
+    kabinKnapper *newNode = (kabinKnapper *)malloc(sizeof(kabinKnapper));
+    if (newNode == NULL) {
+        return 1; //Stopper minneallokeringen hvis den feiler (ikke nok minneplass)
+    }
+    newNode->val = val;
+    newNode->next = NULL;
+    //Hvis lista er tom, så blir denne noden til head
+    if (*headRef == NULL) {
+        *headRef = newNode;
+        return;
+    }
+    //Hvis det allerede er elementer i lista, så går den til slutten og legger til der
+    kabinKnapper *current = *headRef;
+    while (current->next != NULL) {
         current = current->next;
     }
-    //Legger til knappetrykk
-    current->next = (kabinKnapper *) malloc(sizeof(kabinKnapper));
-    current->next->val = val;
-    current->next->next = NULL;
+    current->next = newNode;
 }
+
+
+//Fjerner første element i lista
+int pop(kabinKnapper ** head) {
+    int retval = -1;
+    kabinKnapper * next_node = NULL;
+    if (*head == NULL) {
+        return -1;
+    }
+    next_node = (*head)->next;
+    retval = (*head)->val;
+    free(*head);
+    *head = next_node;
+
+    return retval;
+}
+
 
 //Printer kø-lista
 void print_list(kabinKnapper * head) {
