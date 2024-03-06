@@ -71,9 +71,9 @@ int main(){
                 }
             }
             previousFloor = currentFloor; //Oppdaterer forrige etasje
-            if(opp == NULL && ned == NULL){
-                firstUpDown = 0;
-            }
+            //if(opp == NULL && ned == NULL){
+            //    firstUpDown = 0;
+            //}
 
             // Oppdaterer gjeldende etasje
             floor = elevio_floorSensor();
@@ -111,9 +111,9 @@ int main(){
                     if(checkList(opp, f) == 1){ //Sjekker om knappetrykket allerede er i lista. 0 = i liste, 1 = ikke i liste
                         pushEnd(&opp, f);
                         elevio_buttonLamp(f, 0, 1);
-                        if(firstUpDown == 0){
-                            firstUpDown = 1;
-                        }
+                        //if(firstUpDown == 0){
+                        //    firstUpDown = 1;
+                        //}
                     }
                     printList(opp);
                 }
@@ -124,9 +124,9 @@ int main(){
                     if(checkList(ned, f) == 1){ //Sjekker om knappetrykket allerede er i lista. 0 = i liste, 1 = ikke i liste
                         pushEnd(&ned, f);
                         elevio_buttonLamp(f, 1, 1);
-                        if(firstUpDown == 0){
-                            firstUpDown = -1;
-                        }
+                        //if(firstUpDown == 0){
+                        //    firstUpDown = -1;
+                        //}
                     }
                     printList(ned);
                 }
@@ -136,6 +136,11 @@ int main(){
             //Kjører heisen til neste etasje i køen
             nextFloor = getFirst(head);
             if(head == NULL){
+                nextFloor = getFirst(opp);
+                if(opp == NULL){
+                    nextFloor = getFirst(ned);
+                }
+                /*
                 printf("First: %d\n", firstUpDown);
                 if(firstUpDown == 1){
                     nextFloor = getFirst(opp);
@@ -143,6 +148,7 @@ int main(){
                 else if(firstUpDown == -1){
                     nextFloor = getFirst(ned);
                 }
+                */
                 
             }
             if (nextFloor > currentFloor && nextFloor != -1) {
@@ -166,7 +172,7 @@ int main(){
                     elevio_buttonLamp(currentFloor, 1, 0);
                     removeValue(&ned, currentFloor);
                 }
-                firstUpDown = 0;
+                //firstUpDown = 0;
                 if(!alreeadyPrinted && nextFloor != -1){
                     printf("Heisen har ankommet %d. etasje\n", nextFloor);
                     alreeadyPrinted = true;
