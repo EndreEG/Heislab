@@ -26,9 +26,13 @@ int main(){
     int previousFloor = -1;
     int nextFloor;
     bool alreeadyPrinted = false;
+    int retning;
+    int firstUpDown;
 
-    kabinKnapper * head = NULL; //Køsystem for knappetrykk
-    
+    kabinKnapper * head = NULL; //Køsystem for knappetrykk inni heis
+    kabinKnapper * opp = NULL;
+    kabinKnapper * ned = NULL;
+
 
 
     //Hvis heisen starter mellom etasjer, så flyttes den ned til nærmeste etasje
@@ -55,16 +59,21 @@ int main(){
     //Kode for å overvåke knappetrykk
     while(1){
         if(!elevio_obstruction()){//Sjekker etter sperringer i døra
-            //Sjekker om heiser går opp eller ned
+            //Sjekker om heisen går opp eller ned
             if(previousFloor != currentFloor && currentFloor != nextFloor){
                 if(previousFloor > currentFloor){
                     printf("Heisen går nedover\n");
+                    retning = -1;
                 }
                 else if(previousFloor < currentFloor && previousFloor != -1 && currentFloor != nextFloor){
                     printf("Heisen går oppover\n");
+                    retning = 1;
                 }
             }
             previousFloor = currentFloor; //Oppdaterer forrige etasje
+            if(opp == NULL && ned == NULL){
+                firstUpDown = 0;
+            }
 
             // Oppdaterer gjeldende etasje
             floor = elevio_floorSensor();
@@ -86,7 +95,7 @@ int main(){
                 elevio_floorIndicator(3);
             }
 
-            //Legger til etasjer i køsystemet ved knappetrykk
+            //Legger til etasjer i køsystemet ved knappetrykk i kabinen
             for (int f = 0; f < N_FLOORS; f++) {
                 if (elevio_callButton(f, 2)) {
                     if(checkList(head, f) == 1){ //Sjekker om knappetrykket allerede er i lista. 0 = i liste, 1 = ikke i liste
@@ -96,9 +105,46 @@ int main(){
                     printList(head);
                 }
             }
+            //Legger til trykk på opp-knapper
+            for (int f = 0; f < N_FLOORS-1; f++) {
+                if (elevio_callButton(f, 0)) {
+                    if(checkList(opp, f) == 1){ //Sjekker om knappetrykket allerede er i lista. 0 = i liste, 1 = ikke i liste
+                        pushEnd(&opp, f);
+                        elevio_buttonLamp(f, 0, 1);
+                        if(firstUpDown == 0){
+                            firstUpDown = 1;
+                        }
+                    }
+                    printList(opp);
+                }
+            }
+            //Legger til trykk på ned-knapper
+            for (int f = 1; f < N_FLOORS; f++) {
+                if (elevio_callButton(f, 1)) {
+                    if(checkList(ned, f) == 1){ //Sjekker om knappetrykket allerede er i lista. 0 = i liste, 1 = ikke i liste
+                        pushEnd(&ned, f);
+                        elevio_buttonLamp(f, 1, 1);
+                        if(firstUpDown == 0){
+                            firstUpDown = -1;
+                        }
+                    }
+                    printList(ned);
+                }
+            }
+            
 
             //Kjører heisen til neste etasje i køen
             nextFloor = getFirst(head);
+            if(head == NULL){
+                printf("First: %d\n", firstUpDown);
+                if(firstUpDown == 1){
+                    nextFloor = getFirst(opp);
+                }
+                else if(firstUpDown == -1){
+                    nextFloor = getFirst(ned);
+                }
+                
+            }
             if (nextFloor > currentFloor && nextFloor != -1) {
                 elevio_motorDirection(DIRN_UP);
                 alreeadyPrinted = false;
@@ -111,30 +157,56 @@ int main(){
                 elevio_motorDirection(DIRN_STOP);
                 elevio_buttonLamp(currentFloor, 2, 0);
                 pop(&head);
+                retning = 0;
+                if(currentFloor != N_FLOORS-1){
+                    elevio_buttonLamp(currentFloor, 0, 0);
+                    removeValue(&opp, currentFloor);
+                }
+                if(currentFloor != 0){
+                    elevio_buttonLamp(currentFloor, 1, 0);
+                    removeValue(&ned, currentFloor);
+                }
+                firstUpDown = 0;
                 if(!alreeadyPrinted && nextFloor != -1){
                     printf("Heisen har ankommet %d. etasje\n", nextFloor);
                     alreeadyPrinted = true;
                     elevio_doorOpenLamp(1);
-                    nanosleep(&(struct timespec){3, 0}, NULL);
+                    stopp(&head, &opp, &ned);
                     elevio_doorOpenLamp(0);
                 }
             }
-            if(checkList(head, currentFloor) == 0){//Plukker opp folk på veien
+            //Plukker opp folk på veien
+            if(checkList(head, currentFloor) == 0 || (checkList(opp, currentFloor) == 0 && retning == 1) || (checkList(ned, currentFloor) == 0 && retning == -1)){
                 elevio_buttonLamp(currentFloor, 2, 0);
+                if(currentFloor != N_FLOORS-1){//Skrur av opp_lys
+                    elevio_buttonLamp(currentFloor, 0, 0);
+                }
+                if(currentFloor != 0){//Skrur av ned_lys
+                    elevio_buttonLamp(currentFloor, 1, 0);
+                }
                 elevio_doorOpenLamp(1);
-                stopp();
+                stopp(&head, &opp, &ned);
                 elevio_doorOpenLamp(0);
                 removeValue(&head, currentFloor);
+                if(currentFloor != N_FLOORS-1){//Fjerner fra opp-liste
+                    removeValue(&opp, currentFloor);
+                }
+                if(currentFloor != 0){//Fjerner fra ned-liste
+                    removeValue(&ned, currentFloor);
+                }
             }
 
             // Stopper heisen når den har nådd destinasjonen sin
+            /*
             if (currentFloor == targetFloor && currentFloor != -1 && previousFloor != currentFloor) {
                 elevio_motorDirection(DIRN_STOP);
                 printf("Heisen har ankommet etasje: %d\n", currentFloor);
                 targetFloor = -1; // Tilbakestiller destinasjonsetasje
                 pop(&head);//Fjerner etasje fra lista
                 printList(head);
-            }       
+            }  
+            */
+                 
             
             //Lyser opp obstruction-lampa
             if(elevio_obstruction()){
@@ -160,7 +232,20 @@ int main(){
         free(current);
         current = next;
     }
-
+    kabinKnapper *current_opp = opp;
+    kabinKnapper *next_opp;
+    while (current_opp != NULL) {
+        next_opp = current_opp->next;
+        free(current_opp);
+        current_opp = next_opp;
+    }
+    kabinKnapper *current_ned = ned;
+    kabinKnapper *next_ned;
+    while (current_ned != NULL) {
+        next_ned = current_ned->next;
+        free(current_ned);
+        current_ned = next_ned;
+    }
     return 0;
 }//Slutten på main-funksjonen
 
@@ -224,12 +309,14 @@ int checkList(kabinKnapper * head, int f){
     kabinKnapper * current = head;
     while (current != NULL){
         if(current->val == f){
-            return 0;
+            return 0;//Hvis den finner verdien i lista, så returneres 0
         }
         current = current->next;
     }
-    return 1;
+    return 1; //Hvis den ikke finner verdien, så returneres 1
 }
+
+
 
 //Returnerer første element i lista
 int getFirst(kabinKnapper * head) {
@@ -286,14 +373,38 @@ void removeValue(kabinKnapper** headRef, int value) {
     } else {
         prev->next = current->next;
     }
-    // Frigjør minnet som ble allokert for noden
-    free(current);
+    free(current); // Frigjør minnet som ble allokert for noden
 }
 
 
 
-//Stopper heisen i tre sekunder
-void stopp(){
+//Stopper heisen i tre sekunder, men kan fortsatt legge inn bestillinger
+void stopp(kabinKnapper ** head, kabinKnapper ** opp,  kabinKnapper ** ned){
     elevio_motorDirection(DIRN_STOP);
-    nanosleep(&(struct timespec){3, 0}, NULL);
+    for (int i = 0; i < 175; i++){ //Pauser heisen i tre sekunder, men fortsatt mulig å legge inn bestillinger
+        for (int f = 0; f < N_FLOORS; f++) {
+            if (elevio_callButton(f, 2)) {//Sjekker etter trykk på etasjeknapp
+                if(checkList(*head, f) == 1){ //Sjekker om knappetrykket allerede er i lista. 0 = i liste, 1 = ikke i liste
+                    pushEnd(head, f);
+                    elevio_buttonLamp(f, 2, 1);
+                }
+            printList(*head);
+            }
+            if (elevio_callButton(f, 0)) {//Sjekker etter trykk på opp-knapp
+                if(checkList(*opp, f) == 1){ //Sjekker om knappetrykket allerede er i lista. 0 = i liste, 1 = ikke i liste
+                    pushEnd(opp, f);
+                    elevio_buttonLamp(f, 0, 1);
+                }
+            printList(*opp);
+            }
+            if (elevio_callButton(f, 1)) {//Sjekker etter trykk på ned-knapp
+                if(checkList(*ned, f) == 1){ //Sjekker om knappetrykket allerede er i lista. 0 = i liste, 1 = ikke i liste
+                    pushEnd(ned, f);
+                    elevio_buttonLamp(f, 1, 1);
+                }
+            printList(*ned);
+            }
+        }
+        nanosleep(&(struct timespec){0, 0.5*1000*1000}, NULL);
+    }
 }
